@@ -8,8 +8,7 @@ import {
   TransladarModal,
   RotacionarModal,
   EspelharModal,
-  AumentarModal,
-  DiminuirModal,
+  RedimensionarModal,
   GrayscaleModal,
   PassaBaixaModal,
   PassaAltaModal,
@@ -26,8 +25,7 @@ import {
   transladar,
   rotacionar,
   espelhar,
-  aumentar,
-  diminuir,
+  redimensionar,
   grayscale,
   passaBaixa,
   passaAlta,
@@ -196,8 +194,7 @@ export default function Home() {
         onTransladar={() => openModal("transladar")}
         onRotacionar={() => openModal("rotacionar")}
         onEspelhar={() => openModal("espelhar")}
-        onAumentar={() => openModal("aumentar")}
-        onDiminuir={() => openModal("diminuir")}
+        onRedimensionar={() => openModal("redimensionar")}
         onGrayscale={() => openModal("grayscale")}
         onPassaBaixa={() => openModal("passaBaixa")}
         onPassaAlta={() => openModal("passaAlta")}
@@ -253,24 +250,16 @@ export default function Home() {
       <EspelharModal
         isOpen={activeModal === "espelhar"}
         onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Espelhar", () => espelhar(originalImage));
+        onApply={(axis: "horizontal" | "vertical") => {
+          runOperation("Espelhar", () => espelhar(originalImage, axis));
         }}
       />
 
-      <AumentarModal
-        isOpen={activeModal === "aumentar"}
+      <RedimensionarModal
+        isOpen={activeModal === "redimensionar"}
         onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Aumentar", () => aumentar(originalImage));
-        }}
-      />
-
-      <DiminuirModal
-        isOpen={activeModal === "diminuir"}
-        onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Diminuir", () => diminuir(originalImage));
+        onApply={(sizex, sizey) => {
+          runOperation("Redimensionar", () => redimensionar(originalImage, sizex, sizey));
         }}
       />
 

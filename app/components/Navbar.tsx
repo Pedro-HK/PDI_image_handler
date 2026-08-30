@@ -32,8 +32,7 @@ export interface NavbarProps {
   onTransladar: () => void;
   onRotacionar: () => void;
   onEspelhar: () => void;
-  onAumentar: () => void;
-  onDiminuir: () => void;
+  onRedimensionar: () => void;
 
   // Filtros
   onGrayscale: () => void;
@@ -60,8 +59,7 @@ export function Navbar({
   onTransladar,
   onRotacionar,
   onEspelhar,
-  onAumentar,
-  onDiminuir,
+  onRedimensionar,
   onGrayscale,
   onPassaBaixa,
   onPassaAlta,
@@ -229,20 +227,11 @@ export function Navbar({
 
               <button
                 type="button"
-                onClick={(e) => handleItemClick(onAumentar, e)}
+                onClick={(e) => handleItemClick(onRedimensionar, e)}
                 className="w-full px-3.5 py-2 text-left flex items-center gap-2.5 text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
               >
                 <ZoomIn className="w-4 h-4 text-amber-400" />
-                Aumentar
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => handleItemClick(onDiminuir, e)}
-                className="w-full px-3.5 py-2 text-left flex items-center gap-2.5 text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
-              >
-                <ZoomOut className="w-4 h-4 text-amber-400" />
-                Diminuir
+                Redimensionar
               </button>
             </div>
           )}
