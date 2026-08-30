@@ -1,8 +1,4 @@
-/**
- * Ponto de entrada centralizado para todas as funções e helpers de PDI.
- */
-
-export * from "./helpers";
+export * from "./BaseModal";
 export * from "./geometric";
 export * from "./filters";
 export * from "./morphology";

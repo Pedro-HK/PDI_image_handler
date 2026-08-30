@@ -1,36 +1,52 @@
 /**
  * Morfologia Matemática
  *
- * ATENÇÃO: Nenhuma manipulação de imagem está implementada.
- * Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
+ * ATENÇÃO: Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
  */
 
-export function dilatacao(imageData?: ImageData | null): ImageData | null {
+import { PDIImage, wrapPDIImage } from "./helpers";
+
+export function dilatacao(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Morfologia] dilatacao chamada");
   // TODO: Implementar operação de dilatação
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
-export function erosao(imageData?: ImageData | null): ImageData | null {
+export function erosao(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Morfologia] erosao chamada");
   // TODO: Implementar operação de erosão
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
-export function abertura(imageData?: ImageData | null): ImageData | null {
+export function abertura(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Morfologia] abertura chamada");
   // TODO: Implementar operação de abertura (erosão seguida de dilatação)
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
-export function fechamento(imageData?: ImageData | null): ImageData | null {
+export function fechamento(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Morfologia] fechamento chamado");
   // TODO: Implementar operação de fechamento (dilatação seguida de erosão)
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
-export function afinamento(imageData?: ImageData | null): ImageData | null {
+export function afinamento(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Morfologia] afinamento chamado");
   // TODO: Implementar afinamento (skeletonization / thinning)
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }

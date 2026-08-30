@@ -1,12 +1,12 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   UploadCloud,
   ImageIcon,
   Maximize,
   Sparkles,
-  Info,
-  Layers,
-  ArrowRight
+  ArrowRight,
+  Download,
+  Loader2,
 } from "lucide-react";
 
 interface ImageViewerProps {
@@ -15,8 +15,11 @@ interface ImageViewerProps {
   imageDimensions: { width: number; height: number } | null;
   fileName: string | null;
   lastOperationName: string | null;
+  isProcessing?: boolean;
+  processingText?: string;
   onUploadImage: (file: File) => void;
   onTriggerFileInput: () => void;
+  onSaveImage?: () => void;
 }
 
 export function ImageViewer({
@@ -25,8 +28,11 @@ export function ImageViewer({
   imageDimensions,
   fileName,
   lastOperationName,
+  isProcessing = false,
+  processingText = "Processando imagem...",
   onUploadImage,
   onTriggerFileInput,
+  onSaveImage,
 }: ImageViewerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fitMode, setFitMode] = useState<"contain" | "original">("contain");
@@ -57,14 +63,21 @@ export function ImageViewer({
       {/* Viewport Control Bar */}
       <div className="flex items-center justify-between px-2 py-1 text-xs text-slate-400">
         <div className="flex items-center gap-3">
-          <span className="font-semibold text-slate-300">Modo de Visualização:</span>
+          <span className="font-semibold text-slate-300">Visualização:</span>
           <button
             onClick={() => setFitMode(fitMode === "contain" ? "original" : "contain")}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-850 hover:bg-slate-800 text-slate-200 rounded border border-slate-700/80 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded border border-slate-700/80 transition-colors cursor-pointer"
           >
             <Maximize className="w-3.5 h-3.5" />
             {fitMode === "contain" ? "Ajustar à Tela (Fit)" : "Tamanho Real (100%)"}
           </button>
+
+          {isProcessing && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-indigo-950/80 border border-indigo-700/60 rounded-md text-indigo-300 animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+              <span className="font-medium text-xs">{processingText}</span>
+            </div>
+          )}
         </div>
 
         {fileName && imageDimensions && (
@@ -84,7 +97,7 @@ export function ImageViewer({
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
         {/* Left Panel: Imagem Original */}
         <div className="flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-850 bg-slate-900 border-b border-slate-800 text-slate-200">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-slate-200">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
               <h3 className="text-xs uppercase tracking-wider font-bold text-slate-200">
@@ -92,7 +105,7 @@ export function ImageViewer({
               </h3>
             </div>
             {originalImageSrc && (
-              <span className="text-[11px] bg-blue-950/60 text-blue-300 px-2 py-0.5 rounded border border-blue-800/40">
+              <span className="text-[11px] bg-blue-950/60 text-blue-300 px-2 py-0.5 rounded border border-blue-800/40 font-medium">
                 Entrada
               </span>
             )}
@@ -130,7 +143,7 @@ export function ImageViewer({
                 <button
                   type="button"
                   onClick={onTriggerFileInput}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <ImageIcon className="w-4 h-4" />
                   Selecionar Imagem
@@ -141,26 +154,48 @@ export function ImageViewer({
         </div>
 
         {/* Right Panel: Imagem Modificada */}
-        <div className="flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-850 bg-slate-900 border-b border-slate-800 text-slate-200">
+        <div className="flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg relative">
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 text-slate-200">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
               <h3 className="text-xs uppercase tracking-wider font-bold text-slate-200">
                 Imagem Modificada
               </h3>
+              {lastOperationName && !isProcessing && (
+                <span className="text-[11px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40 font-medium">
+                  {lastOperationName}
+                </span>
+              )}
             </div>
-            {lastOperationName ? (
-              <span className="text-[11px] bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800/40 font-medium">
-                {lastOperationName}
-              </span>
-            ) : (
-              <span className="text-[11px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">
-                Sem alterações
-              </span>
+
+            {modifiedImageSrc && onSaveImage && !isProcessing && (
+              <button
+                type="button"
+                onClick={onSaveImage}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600/90 hover:bg-emerald-600 text-white text-xs font-medium rounded shadow transition-colors cursor-pointer"
+                title="Salvar/Baixar Imagem Modificada"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Salvar Imagem</span>
+              </button>
             )}
           </div>
 
           <div className="flex-1 flex items-center justify-center p-4 relative overflow-auto">
+            {/* Loading Overlay */}
+            {isProcessing && (
+              <div className="absolute inset-0 z-20 bg-slate-950/75 backdrop-blur-xs flex flex-col items-center justify-center gap-3 animate-in fade-in duration-150">
+                <div className="relative flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+                  <Sparkles className="w-6 h-6 text-indigo-400 absolute" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-slate-100">{processingText}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Processando matriz de pixels...</p>
+                </div>
+              </div>
+            )}
+
             {modifiedImageSrc ? (
               <img
                 src={modifiedImageSrc}
@@ -195,4 +230,3 @@ export function ImageViewer({
     </div>
   );
 }
-

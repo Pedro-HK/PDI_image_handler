@@ -1,10 +1,28 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import type { Route } from "./+types/home";
 import { AuthorsHeader } from "../components/AuthorsHeader";
 import { Navbar } from "../components/Navbar";
 import { ImageViewer } from "../components/ImageViewer";
 import { AboutModal } from "../components/AboutModal";
 import {
+  TransladarModal,
+  RotacionarModal,
+  EspelharModal,
+  AumentarModal,
+  DiminuirModal,
+  GrayscaleModal,
+  PassaBaixaModal,
+  PassaAltaModal,
+  ThresholdModal,
+  DilatacaoModal,
+  ErosaoModal,
+  AberturaModal,
+  FechamentoModal,
+  AfinamentoModal,
+  DesafioModal,
+} from "../components/modals";
+import {
+  PDIImage,
   transladar,
   rotacionar,
   espelhar,
@@ -34,42 +52,66 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  // Nome do autor
   const authorName = "Pedro Henrique Knorst";
 
-  // Estados das Imagens
-  const [originalImageSrc, setOriginalImageSrc] = useState<string | null>(null);
-  const [modifiedImageSrc, setModifiedImageSrc] = useState<string | null>(null);
+  // Estados únicos de imagem
+  const [originalImage, setOriginalImage] = useState<PDIImage | null>(null);
+  const [modifiedImage, setModifiedImage] = useState<PDIImage | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [imageDimensions, setImageDimensions] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-
-  // Status visual da última opção selecionada (apenas informativo na tela)
   const [lastOperationName, setLastOperationName] = useState<string | null>(null);
 
-  // Modal Sobre
+  // Estados de Modais
+  const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
-  // Input de arquivo invisível para o sistema de arquivos do computador
+  // Estados de Loading
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingText, setProcessingText] = useState<string>("Processando...");
+
+  // Input invisível de arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Carregar imagem
+  // Helper para executar operações de forma assíncrona com loading
+  const runOperation = (operationName: string, opFn: () => PDIImage | null) => {
+    if (!originalImage) return;
+
+    setIsProcessing(true);
+    setProcessingText(`Aplicando ${operationName}...`);
+    setLastOperationName(operationName);
+
+    setTimeout(() => {
+      try {
+        const result = opFn();
+        if (result) {
+          setModifiedImage(result);
+        }
+      } catch (err) {
+        console.error(`Erro ao executar ${operationName}:`, err);
+      } finally {
+        setIsProcessing(false);
+      }
+    }, 40);
+  };
+
+  // 1. Carregar arquivo
   const handleLoadImageFile = (file: File) => {
+    setIsProcessing(true);
+    setProcessingText("Carregando imagem...");
+
     const reader = new FileReader();
     reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
+      const dataUrl = e.target?.result as string;
+      if (dataUrl) {
         const img = new Image();
         img.onload = () => {
-          setImageDimensions({ width: img.width, height: img.height });
-          setOriginalImageSrc(result);
-          setModifiedImageSrc(result);
+          const pdi = PDIImage.fromImageElement(img);
+          setOriginalImage(pdi);
+          setModifiedImage(pdi.clone());
           setFileName(file.name);
           setLastOperationName(null);
+          setIsProcessing(false);
         };
-        img.src = result;
+        img.src = dataUrl;
       }
     };
     reader.readAsDataURL(file);
@@ -89,148 +131,51 @@ export default function Home() {
     }
   };
 
-  // =========================================================================
-  // FUNÇÕES ESPECÍFICAS DE CADA OPÇÃO DOS MENUS
-  // Importadas de "app/pdi/" para que você possa implementar sua lógica lá.
-  // =========================================================================
-
-  // --- 1. MENU ARQUIVO ---
-  const handleAbrirImagem = () => {
-    console.log("Ação: Abrir Imagem");
-    handleOpenFilePicker();
-  };
-
+  // 2. Salvar / Download MANUAL
   const handleSalvarImagem = () => {
-    console.log("Ação: Salvar Imagem");
-    if (!modifiedImageSrc) return;
+    if (!modifiedImage) return;
     const link = document.createElement("a");
     const baseName = fileName ? fileName.replace(/\.[^/.]+$/, "") : "imagem";
     link.download = `${baseName}_modificada.png`;
-    link.href = modifiedImageSrc;
+    link.href = modifiedImage.toDataURL();
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleSobre = () => {
-    console.log("Ação: Sobre");
-    setIsAboutOpen(true);
-  };
-
+  // 3. Sair / Limpar tela
   const handleSair = () => {
-    console.log("Ação: Sair");
     if (
-      originalImageSrc &&
+      originalImage &&
       !window.confirm("Deseja realmente limpar as imagens carregadas?")
     ) {
       return;
     }
-    setOriginalImageSrc(null);
-    setModifiedImageSrc(null);
+    setOriginalImage(null);
+    setModifiedImage(null);
     setFileName(null);
-    setImageDimensions(null);
     setLastOperationName(null);
+    setIsProcessing(false);
   };
 
-  // --- 2. MENU TRANSFORMAÇÕES GEOMÉTRICAS ---
-  const handleTransladar = () => {
-    setLastOperationName("Transladar");
-    transladar();
+  // =========================================================================
+  // HANDLERS PARA ABRIR O MODAL DE CADA OPERAÇÃO
+  // =========================================================================
+  const openModal = (modalName: string) => {
+    if (!originalImage) {
+      alert("Por favor, abra uma imagem primeiro pelo menu Arquivo > Abrir imagem.");
+      return;
+    }
+    setActiveModal(modalName);
   };
 
-  const handleRotacionar = () => {
-    setLastOperationName("Rotacionar");
-    rotacionar();
-  };
-
-  const handleEspelhar = () => {
-    setLastOperationName("Espelhar");
-    espelhar();
-  };
-
-  const handleAumentar = () => {
-    setLastOperationName("Aumentar");
-    aumentar();
-  };
-
-  const handleDiminuir = () => {
-    setLastOperationName("Diminuir");
-    diminuir();
-  };
-
-  // --- 3. MENU FILTROS ---
-  const handleGrayscale = () => {
-    setLastOperationName("Grayscale");
-    grayscale();
-  };
-
-  const handlePassaBaixa = () => {
-    setLastOperationName("Passa Baixa");
-    passaBaixa();
-  };
-
-  const handlePassaAlta = () => {
-    setLastOperationName("Passa Alta");
-    passaAlta();
-  };
-
-  const handleThreshold = () => {
-    setLastOperationName("Threshold");
-    threshold();
-  };
-
-  // --- 4. MENU MORFOLOGIA MATEMÁTICA ---
-  const handleDilatacao = () => {
-    setLastOperationName("Dilatação");
-    dilatacao();
-  };
-
-  const handleErosao = () => {
-    setLastOperationName("Erosão");
-    erosao();
-  };
-
-  const handleAbertura = () => {
-    setLastOperationName("Abertura");
-    abertura();
-  };
-
-  const handleFechamento = () => {
-    setLastOperationName("Fechamento");
-    fechamento();
-  };
-
-  const handleAfinamento = () => {
-    setLastOperationName("Afinamento");
-    afinamento();
-  };
-
-  // --- 5. MENU EXTRAÇÃO DE CARACTERÍSTICAS ---
-  const handleDesafio = () => {
-    setLastOperationName("DESAFIO");
-    desafio();
-  };
-
-  // Atalhos de teclado (Ctrl+O, Ctrl+S)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
-        e.preventDefault();
-        handleAbrirImagem();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        if (modifiedImageSrc) {
-          handleSalvarImagem();
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [modifiedImageSrc]);
+  const imageDimensions = originalImage
+    ? { width: originalImage.getWidth(), height: originalImage.getHeight() }
+    : null;
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      {/* Input de arquivo oculto */}
+      {/* Input invisível de arquivo */}
       <input
         ref={fileInputRef}
         type="file"
@@ -244,36 +189,39 @@ export default function Home() {
 
       {/* 2. Barra de Menus com Dropdowns */}
       <Navbar
-        onAbrirImagem={handleAbrirImagem}
+        onAbrirImagem={handleOpenFilePicker}
         onSalvarImagem={handleSalvarImagem}
-        onSobre={handleSobre}
+        onSobre={() => setIsAboutOpen(true)}
         onSair={handleSair}
-        onTransladar={handleTransladar}
-        onRotacionar={handleRotacionar}
-        onEspelhar={handleEspelhar}
-        onAumentar={handleAumentar}
-        onDiminuir={handleDiminuir}
-        onGrayscale={handleGrayscale}
-        onPassaBaixa={handlePassaBaixa}
-        onPassaAlta={handlePassaAlta}
-        onThreshold={handleThreshold}
-        onDilatacao={handleDilatacao}
-        onErosao={handleErosao}
-        onAbertura={handleAbertura}
-        onFechamento={handleFechamento}
-        onAfinamento={handleAfinamento}
-        onDesafio={handleDesafio}
+        onTransladar={() => openModal("transladar")}
+        onRotacionar={() => openModal("rotacionar")}
+        onEspelhar={() => openModal("espelhar")}
+        onAumentar={() => openModal("aumentar")}
+        onDiminuir={() => openModal("diminuir")}
+        onGrayscale={() => openModal("grayscale")}
+        onPassaBaixa={() => openModal("passaBaixa")}
+        onPassaAlta={() => openModal("passaAlta")}
+        onThreshold={() => openModal("threshold")}
+        onDilatacao={() => openModal("dilatacao")}
+        onErosao={() => openModal("erosao")}
+        onAbertura={() => openModal("abertura")}
+        onFechamento={() => openModal("fechamento")}
+        onAfinamento={() => openModal("afinamento")}
+        onDesafio={() => openModal("desafio")}
       />
 
       {/* 3. Painel Principal Lado a Lado (Original vs Modificada) */}
       <ImageViewer
-        originalImageSrc={originalImageSrc}
-        modifiedImageSrc={modifiedImageSrc}
+        originalImageSrc={originalImage?.toDataURL() ?? null}
+        modifiedImageSrc={modifiedImage?.toDataURL() ?? null}
         imageDimensions={imageDimensions}
         fileName={fileName}
         lastOperationName={lastOperationName}
+        isProcessing={isProcessing}
+        processingText={processingText}
         onUploadImage={handleLoadImageFile}
         onTriggerFileInput={handleOpenFilePicker}
+        onSaveImage={handleSalvarImagem}
       />
 
       {/* Modal Sobre */}
@@ -281,6 +229,129 @@ export default function Home() {
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
         authorName={authorName}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAIS DE CONFIGURAÇÃO DE CADA OPERAÇÃO */}
+      {/* ========================================================================= */}
+      <TransladarModal
+        isOpen={activeModal === "transladar"}
+        onClose={() => setActiveModal(null)}
+        onApply={(dx, dy) => {
+          runOperation("Transladar", () => transladar(originalImage, dx, dy));
+        }}
+      />
+
+      <RotacionarModal
+        isOpen={activeModal === "rotacionar"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Rotacionar", () => rotacionar(originalImage));
+        }}
+      />
+
+      <EspelharModal
+        isOpen={activeModal === "espelhar"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Espelhar", () => espelhar(originalImage));
+        }}
+      />
+
+      <AumentarModal
+        isOpen={activeModal === "aumentar"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Aumentar", () => aumentar(originalImage));
+        }}
+      />
+
+      <DiminuirModal
+        isOpen={activeModal === "diminuir"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Diminuir", () => diminuir(originalImage));
+        }}
+      />
+
+      <GrayscaleModal
+        isOpen={activeModal === "grayscale"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Grayscale", () => grayscale(originalImage));
+        }}
+      />
+
+      <PassaBaixaModal
+        isOpen={activeModal === "passaBaixa"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Passa Baixa", () => passaBaixa(originalImage));
+        }}
+      />
+
+      <PassaAltaModal
+        isOpen={activeModal === "passaAlta"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Passa Alta", () => passaAlta(originalImage));
+        }}
+      />
+
+      <ThresholdModal
+        isOpen={activeModal === "threshold"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Threshold", () => threshold(originalImage));
+        }}
+      />
+
+      <DilatacaoModal
+        isOpen={activeModal === "dilatacao"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Dilatação", () => dilatacao(originalImage));
+        }}
+      />
+
+      <ErosaoModal
+        isOpen={activeModal === "erosao"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Erosão", () => erosao(originalImage));
+        }}
+      />
+
+      <AberturaModal
+        isOpen={activeModal === "abertura"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Abertura", () => abertura(originalImage));
+        }}
+      />
+
+      <FechamentoModal
+        isOpen={activeModal === "fechamento"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Fechamento", () => fechamento(originalImage));
+        }}
+      />
+
+      <AfinamentoModal
+        isOpen={activeModal === "afinamento"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("Afinamento", () => afinamento(originalImage));
+        }}
+      />
+
+      <DesafioModal
+        isOpen={activeModal === "desafio"}
+        onClose={() => setActiveModal(null)}
+        onApply={() => {
+          runOperation("DESAFIO", () => desafio(originalImage));
+        }}
       />
     </div>
   );

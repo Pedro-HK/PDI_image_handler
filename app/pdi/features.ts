@@ -1,12 +1,16 @@
 /**
  * Extração de Características
  *
- * ATENÇÃO: Nenhuma manipulação de imagem está implementada.
- * Implemente a lógica matemática do desafio aqui no próximo encontro.
+ * ATENÇÃO: Implemente a lógica matemática do desafio aqui no próximo encontro.
  */
 
-export function desafio(imageData?: ImageData | null): ImageData | null {
+import { PDIImage, wrapPDIImage } from "./helpers";
+
+export function desafio(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Extração] desafio chamado");
   // TODO: Implementar técnica de extração de características (DESAFIO a definir pelo professor)
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }

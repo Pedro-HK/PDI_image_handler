@@ -1,33 +1,44 @@
 /**
  * Filtros de Imagem
  *
- * ATENÇÃO: Nenhuma manipulação de imagem está implementada.
- * Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
+ * ATENÇÃO: Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
  */
 
-export function grayscale(imageData?: ImageData | null): ImageData | null {
+import { PDIImage, wrapPDIImage } from "./helpers";
+
+export function grayscale(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Filtros] grayscale chamado");
   // TODO: Implementar conversão para escala de cinza
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
-export function passaBaixa(imageData?: ImageData | null): ImageData | null {
+export function passaBaixa(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Filtros] passaBaixa chamado");
   // TODO: Implementar filtro passa baixa (ex: filtro da média, gaussiano)
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
-export function passaAlta(imageData?: ImageData | null): ImageData | null {
+export function passaAlta(
+  imageInput?: PDIImage | ImageData | null
+): PDIImage | null {
   console.log("[PDI - Filtros] passaAlta chamado");
   // TODO: Implementar filtro passa alta (ex: realce de bordas, laplaciano, sobel)
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }
 
 export function threshold(
-  imageData?: ImageData | null,
-  limiar: number = 128,
-): ImageData | null {
+  imageInput?: PDIImage | ImageData | null,
+  limiar: number = 128
+): PDIImage | null {
   console.log("[PDI - Filtros] threshold chamado", { limiar });
   // TODO: Implementar limiarização / binarização de imagem
-  return imageData || null;
+  if (!imageInput) return null;
+  return imageInput instanceof PDIImage ? imageInput.clone() : wrapPDIImage(imageInput);
 }

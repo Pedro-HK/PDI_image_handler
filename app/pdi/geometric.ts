@@ -1,36 +1,52 @@
 /**
  * Transformações Geométricas
  *
- * ATENÇÃO: Nenhuma manipulação de imagem está implementada.
- * Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
+ * ATENÇÃO: Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
  */
 
+import { PDIImage, wrapPDIImage, createPDIImage } from "./helpers";
+
 export function transladar(
-  imageData?: ImageData | null,
+  imageData?: ImageData | PDIImage | null,
   dx: number = 0,
   dy: number = 0,
-): ImageData | null {
+): PDIImage | null {
+  if (!imageData) {
+    return null;
+  }
   console.log("[PDI - Geométricas] transladar chamado", { dx, dy });
 
-  function transform(image, resultImage, kernel) {
-    for (var c = 0; c < image.getChannelCount(); c++) {
-      for (var x = 0; x < image.getWidth(); x++) {
-        for (var y = 0; y < image.getHeight(); y++) {
+  function transform(
+    image: PDIImage,
+    resultImage: PDIImage,
+    kernel: number[][],
+  ): void {
+    for (let c = 0; c < image.getChannelCount(); c++) {
+      for (let x = 0; x < image.getWidth(); x++) {
+        for (let y = 0; y < image.getHeight(); y++) {
           applyKernel(image, resultImage, kernel, c, x, y, image.get(c, x, y));
         }
       }
     }
   }
 
-  function applyKernel(image, resultImage, kernel, channel, x, y, value) {
-    var halfX = image.getWidth() / 2;
-    var halfY = image.getHeight() / 2;
-    var tmpX = x - halfX;
-    var tmpY = y - halfY;
-    var newX = Math.round(
+  function applyKernel(
+    image: PDIImage,
+    resultImage: PDIImage,
+    kernel: number[][],
+    channel: number,
+    x: number,
+    y: number,
+    value: number,
+  ) {
+    let halfX = image.getWidth() / 2;
+    let halfY = image.getHeight() / 2;
+    let tmpX = x - halfX;
+    let tmpY = y - halfY;
+    let newX = Math.round(
       tmpX * kernel[0][0] + tmpY * kernel[0][1] + 1 * kernel[0][2],
     );
-    var newY = Math.round(
+    let newY = Math.round(
       tmpX * kernel[1][0] + tmpY * kernel[1][1] + 1 * kernel[1][2],
     );
     newX += halfX;
@@ -46,50 +62,49 @@ export function transladar(
     }
   }
 
-  var image = imageData;
-  var resultImage = new ImageData(image.getWidth(), image.getHeight());
-  var x = 100;
-  var y = 50;
+  const image =
+    imageData instanceof PDIImage ? imageData : wrapPDIImage(imageData);
+  const resultImage = createPDIImage(image.getWidth(), image.getHeight());
   transform(image, resultImage, [
-    [1, 0, -x],
-    [0, 1, -y],
+    [1, 0, -dx],
+    [0, 1, -dy],
     [0, 0, 1],
   ]);
   return resultImage || null;
 }
 
 export function rotacionar(
-  imageData?: ImageData | null,
+  imageData?: ImageData | PDIImage | null,
   angleDegrees: number = 90,
-): ImageData | null {
+): PDIImage | null {
   console.log("[PDI - Geométricas] rotacionar chamado", { angleDegrees });
   // TODO: Implementar algoritmo de rotação de imagem
-  return imageData || null;
+  return null;
 }
 
 export function espelhar(
-  imageData?: ImageData | null,
+  imageData?: ImageData | PDIImage | null,
   axis: "horizontal" | "vertical" = "horizontal",
-): ImageData | null {
+): PDIImage | null {
   console.log("[PDI - Geométricas] espelhar chamado", { axis });
   // TODO: Implementar algoritmo de espelhamento de imagem
-  return imageData || null;
+  return null;
 }
 
 export function aumentar(
-  imageData?: ImageData | null,
+  imageData?: ImageData | PDIImage | null,
   scaleFactor: number = 1.5,
-): ImageData | null {
+): PDIImage | null {
   console.log("[PDI - Geométricas] aumentar chamado", { scaleFactor });
   // TODO: Implementar algoritmo de ampliação/escala up de imagem
-  return imageData || null;
+  return null;
 }
 
 export function diminuir(
-  imageData?: ImageData | null,
+  imageData?: ImageData | PDIImage | null,
   scaleFactor: number = 0.5,
-): ImageData | null {
+): PDIImage | null {
   console.log("[PDI - Geométricas] diminuir chamado", { scaleFactor });
   // TODO: Implementar algoritmo de redução/escala down de imagem
-  return imageData || null;
+  return null;
 }
