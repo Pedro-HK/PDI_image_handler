@@ -31,33 +31,37 @@ export function RedimensionarModal({
       <div className="py-2 text-xs text-slate-400">
         <div>
           <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-            Deslocamento X
+            Zoom X
           </label>
           <div className="flex items-center gap-2">
             <input
               type="number"
               value={sizex}
+              max={500}
+              min={1}
               onChange={(e) => setSizex(Number(e.target.value))}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               placeholder="Ex: 100"
             />
-            <span className="text-xs text-slate-400">px</span>
+            <span className="text-xs text-slate-400">%</span>
           </div>
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-            Deslocamento Y
+            Zoom Y
           </label>
           <div className="flex items-center gap-2">
             <input
               type="number"
               value={sizey}
+              max={500}
+              min={1}
               onChange={(e) => setSizey(Number(e.target.value))}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               placeholder="Ex: 50"
             />
-            <span className="text-xs text-slate-400">px</span>
+            <span className="text-xs text-slate-400">%</span>
           </div>
         </div>
       </div>

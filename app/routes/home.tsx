@@ -242,8 +242,8 @@ export default function Home() {
       <RotacionarModal
         isOpen={activeModal === "rotacionar"}
         onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Rotacionar", () => rotacionar(originalImage));
+        onApply={(angle) => {
+          runOperation("Rotacionar", () => rotacionar(originalImage, angle));
         }}
       />
 
