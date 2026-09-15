@@ -22,32 +22,25 @@ import {
 } from "lucide-react";
 
 export interface NavbarProps {
-  // Arquivo
   onAbrirImagem: () => void;
   onSalvarImagem: () => void;
   onSobre: () => void;
   onSair: () => void;
-
-  // Transformações Geométricas
   onTransladar: () => void;
   onRotacionar: () => void;
   onEspelhar: () => void;
   onRedimensionar: () => void;
-
-  // Filtros
   onGrayscale: () => void;
+  onBrilho: () => void;
+  onContraste: () => void;
   onPassaBaixa: () => void;
   onPassaAlta: () => void;
   onThreshold: () => void;
-
-  // Morfologia Matemática
   onDilatacao: () => void;
   onErosao: () => void;
   onAbertura: () => void;
   onFechamento: () => void;
   onAfinamento: () => void;
-
-  // Extração de Características
   onDesafio: () => void;
 }
 
@@ -61,6 +54,8 @@ export function Navbar({
   onEspelhar,
   onRedimensionar,
   onGrayscale,
+  onBrilho,
+  onContraste,
   onPassaBaixa,
   onPassaAlta,
   onThreshold,
@@ -74,7 +69,6 @@ export function Navbar({
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const navRef = useRef<HTMLElement>(null);
 
-  // Fecha o dropdown ao clicar fora do componente de navegação
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
@@ -91,7 +85,6 @@ export function Navbar({
   };
 
   const handleMenuHover = (menuName: string) => {
-    // Se algum menu já estiver aberto, alternar ao passar o mouse por cima
     if (activeMenu !== null) {
       setActiveMenu(menuName);
     }
@@ -109,9 +102,6 @@ export function Navbar({
       className="bg-slate-900 border-b border-slate-800 text-slate-200 px-4 py-1.5 select-none relative z-50 shadow-md"
     >
       <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-1.5">
-        {/* ========================================================================= */}
-        {/* 1. MENU ARQUIVO */}
-        {/* ========================================================================= */}
         <div className="relative inline-block">
           <button
             type="button"
@@ -176,9 +166,6 @@ export function Navbar({
           )}
         </div>
 
-        {/* ========================================================================= */}
-        {/* 2. MENU TRANSFORMAÇÕES GEOMÉTRICAS */}
-        {/* ========================================================================= */}
         <div className="relative inline-block">
           <button
             type="button"
@@ -237,9 +224,6 @@ export function Navbar({
           )}
         </div>
 
-        {/* ========================================================================= */}
-        {/* 3. MENU FILTROS */}
-        {/* ========================================================================= */}
         <div className="relative inline-block">
           <button
             type="button"
@@ -268,6 +252,24 @@ export function Navbar({
 
               <button
                 type="button"
+                onClick={(e) => handleItemClick(onBrilho, e)}
+                className="w-full px-3.5 py-2 text-left flex items-center gap-2.5 text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
+              >
+                <Sun className="w-4 h-4 text-cyan-400" />
+                Brilho
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => handleItemClick(onContraste, e)}
+                className="w-full px-3.5 py-2 text-left flex items-center gap-2.5 text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                Contraste
+              </button>
+
+              <button
+                type="button"
                 onClick={(e) => handleItemClick(onPassaBaixa, e)}
                 className="w-full px-3.5 py-2 text-left flex items-center gap-2.5 text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
               >
@@ -283,22 +285,10 @@ export function Navbar({
                 <Activity className="w-4 h-4 text-cyan-400 rotate-180" />
                 Passa Alta
               </button>
-
-              <button
-                type="button"
-                onClick={(e) => handleItemClick(onThreshold, e)}
-                className="w-full px-3.5 py-2 text-left flex items-center gap-2.5 text-slate-200 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
-                Threshold
-              </button>
             </div>
           )}
         </div>
 
-        {/* ========================================================================= */}
-        {/* 4. MENU MORFOLOGIA MATEMÁTICA */}
-        {/* ========================================================================= */}
         <div className="relative inline-block">
           <button
             type="button"

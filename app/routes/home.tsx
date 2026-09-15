@@ -10,9 +10,10 @@ import {
   EspelharModal,
   RedimensionarModal,
   GrayscaleModal,
+  BrightnessModal,
+  ContrastModal,
   PassaBaixaModal,
   PassaAltaModal,
-  ThresholdModal,
   DilatacaoModal,
   ErosaoModal,
   AberturaModal,
@@ -27,9 +28,10 @@ import {
   espelhar,
   redimensionar,
   grayscale,
+  brilho,
+  contraste,
   passaBaixa,
   passaAlta,
-  threshold,
   dilatacao,
   erosao,
   abertura,
@@ -52,24 +54,19 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const authorName = "Pedro Henrique Knorst";
 
-  // Estados únicos de imagem
   const [originalImage, setOriginalImage] = useState<PDIImage | null>(null);
   const [modifiedImage, setModifiedImage] = useState<PDIImage | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [lastOperationName, setLastOperationName] = useState<string | null>(null);
 
-  // Estados de Modais
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
-  // Estados de Loading
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingText, setProcessingText] = useState<string>("Processando...");
 
-  // Input invisível de arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper para executar operações de forma assíncrona com loading
   const runOperation = (operationName: string, opFn: () => PDIImage | null) => {
     if (!originalImage) return;
 
@@ -91,7 +88,6 @@ export default function Home() {
     }, 40);
   };
 
-  // 1. Carregar arquivo
   const handleLoadImageFile = (file: File) => {
     setIsProcessing(true);
     setProcessingText("Carregando imagem...");
@@ -129,7 +125,6 @@ export default function Home() {
     }
   };
 
-  // 2. Salvar / Download MANUAL
   const handleSalvarImagem = () => {
     if (!modifiedImage) return;
     const link = document.createElement("a");
@@ -141,7 +136,6 @@ export default function Home() {
     document.body.removeChild(link);
   };
 
-  // 3. Sair / Limpar tela
   const handleSair = () => {
     if (
       originalImage &&
@@ -156,9 +150,6 @@ export default function Home() {
     setIsProcessing(false);
   };
 
-  // =========================================================================
-  // HANDLERS PARA ABRIR O MODAL DE CADA OPERAÇÃO
-  // =========================================================================
   const openModal = (modalName: string) => {
     if (!originalImage) {
       alert("Por favor, abra uma imagem primeiro pelo menu Arquivo > Abrir imagem.");
@@ -173,7 +164,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      {/* Input invisível de arquivo */}
       <input
         ref={fileInputRef}
         type="file"
@@ -182,10 +172,8 @@ export default function Home() {
         className="hidden"
       />
 
-      {/* 1. Cabeçalho Superior com Nome do Autor */}
       <AuthorsHeader authorName={authorName} />
 
-      {/* 2. Barra de Menus com Dropdowns */}
       <Navbar
         onAbrirImagem={handleOpenFilePicker}
         onSalvarImagem={handleSalvarImagem}
@@ -196,6 +184,8 @@ export default function Home() {
         onEspelhar={() => openModal("espelhar")}
         onRedimensionar={() => openModal("redimensionar")}
         onGrayscale={() => openModal("grayscale")}
+        onBrilho={() => openModal("brilho")}
+        onContraste={() => openModal("contraste")}
         onPassaBaixa={() => openModal("passaBaixa")}
         onPassaAlta={() => openModal("passaAlta")}
         onThreshold={() => openModal("threshold")}
@@ -207,7 +197,6 @@ export default function Home() {
         onDesafio={() => openModal("desafio")}
       />
 
-      {/* 3. Painel Principal Lado a Lado (Original vs Modificada) */}
       <ImageViewer
         originalImageSrc={originalImage?.toDataURL() ?? null}
         modifiedImageSrc={modifiedImage?.toDataURL() ?? null}
@@ -221,21 +210,17 @@ export default function Home() {
         onSaveImage={handleSalvarImagem}
       />
 
-      {/* Modal Sobre */}
       <AboutModal
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
         authorName={authorName}
       />
 
-      {/* ========================================================================= */}
-      {/* MODAIS DE CONFIGURAÇÃO DE CADA OPERAÇÃO */}
-      {/* ========================================================================= */}
       <TransladarModal
         isOpen={activeModal === "transladar"}
         onClose={() => setActiveModal(null)}
         onApply={(dx, dy) => {
-          runOperation("Transladar", () => transladar(originalImage, dx, dy));
+          runOperation("Transladar", () => transladar(modifiedImage, dx, dy));
         }}
       />
 
@@ -243,7 +228,7 @@ export default function Home() {
         isOpen={activeModal === "rotacionar"}
         onClose={() => setActiveModal(null)}
         onApply={(angle) => {
-          runOperation("Rotacionar", () => rotacionar(originalImage, angle));
+          runOperation("Rotacionar", () => rotacionar(modifiedImage, angle));
         }}
       />
 
@@ -251,7 +236,7 @@ export default function Home() {
         isOpen={activeModal === "espelhar"}
         onClose={() => setActiveModal(null)}
         onApply={(axis: "horizontal" | "vertical") => {
-          runOperation("Espelhar", () => espelhar(originalImage, axis));
+          runOperation("Espelhar", () => espelhar(modifiedImage, axis));
         }}
       />
 
@@ -259,7 +244,7 @@ export default function Home() {
         isOpen={activeModal === "redimensionar"}
         onClose={() => setActiveModal(null)}
         onApply={(sizex, sizey) => {
-          runOperation("Redimensionar", () => redimensionar(originalImage, sizex, sizey));
+          runOperation("Redimensionar", () => redimensionar(modifiedImage, sizex, sizey));
         }}
       />
 
@@ -267,31 +252,41 @@ export default function Home() {
         isOpen={activeModal === "grayscale"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("Grayscale", () => grayscale(originalImage));
+          runOperation("Grayscale", () => grayscale(modifiedImage));
+        }}
+      />
+
+      <BrightnessModal
+        isOpen={activeModal === "brilho"}
+        onClose={() => setActiveModal(null)}
+        onApply={(brightness) => {
+          runOperation("Brilho", () => brilho(modifiedImage, brightness));
+        }}
+      />
+
+      <ContrastModal
+        isOpen={activeModal === "contraste"}
+        onClose={() => setActiveModal(null)}
+        onApply={(contrast) => {
+          runOperation("Contraste", () => contraste(modifiedImage, contrast));
         }}
       />
 
       <PassaBaixaModal
         isOpen={activeModal === "passaBaixa"}
         onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Passa Baixa", () => passaBaixa(originalImage));
+        onApply={(methodType) => {
+          runOperation("Passa Baixa", () => passaBaixa(modifiedImage, methodType));
         }}
       />
 
       <PassaAltaModal
         isOpen={activeModal === "passaAlta"}
         onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Passa Alta", () => passaAlta(originalImage));
-        }}
-      />
-
-      <ThresholdModal
-        isOpen={activeModal === "threshold"}
-        onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("Threshold", () => threshold(originalImage));
+        onApply={(methodType, thresholdValue) => {
+          runOperation("Passa Alta", () =>
+            passaAlta(modifiedImage, methodType, thresholdValue),
+          );
         }}
       />
 
@@ -299,7 +294,7 @@ export default function Home() {
         isOpen={activeModal === "dilatacao"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("Dilatação", () => dilatacao(originalImage));
+          runOperation("Dilatação", () => dilatacao(modifiedImage));
         }}
       />
 
@@ -307,7 +302,7 @@ export default function Home() {
         isOpen={activeModal === "erosao"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("Erosão", () => erosao(originalImage));
+          runOperation("Erosão", () => erosao(modifiedImage));
         }}
       />
 
@@ -315,7 +310,7 @@ export default function Home() {
         isOpen={activeModal === "abertura"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("Abertura", () => abertura(originalImage));
+          runOperation("Abertura", () => abertura(modifiedImage));
         }}
       />
 
@@ -323,7 +318,7 @@ export default function Home() {
         isOpen={activeModal === "fechamento"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("Fechamento", () => fechamento(originalImage));
+          runOperation("Fechamento", () => fechamento(modifiedImage));
         }}
       />
 
@@ -331,7 +326,7 @@ export default function Home() {
         isOpen={activeModal === "afinamento"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("Afinamento", () => afinamento(originalImage));
+          runOperation("Afinamento", () => afinamento(modifiedImage));
         }}
       />
 
@@ -339,7 +334,7 @@ export default function Home() {
         isOpen={activeModal === "desafio"}
         onClose={() => setActiveModal(null)}
         onApply={() => {
-          runOperation("DESAFIO", () => desafio(originalImage));
+          runOperation("DESAFIO", () => desafio(modifiedImage));
         }}
       />
     </div>

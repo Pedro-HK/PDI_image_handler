@@ -40,14 +40,14 @@ function applyKernel(
   );
   newX += halfX;
   newY += halfY;
-  // Pixel position is right
+
   if (
     newX < image.getWidth() &&
     newY < image.getHeight() &&
     newX >= 0 &&
     newY >= 0
   ) {
-    resultImage.set(channel, x, y, image.get(channel, newX, newY));
+    resultImage.set(channel, x, y, image.get(channel, Math.round(newX), Math.round(newY)));
   }
 }
 

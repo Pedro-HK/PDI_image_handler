@@ -24,12 +24,7 @@ export function GrayscaleModal({
       subtitle="Filtros"
       onClose={onClose}
       onApply={handleConfirm}
-    >
-      <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de escala de cinza aqui */}
-        <p className="italic text-slate-500">Parâmetros de escala de cinza (adicione os campos aqui).</p>
-      </div>
-    </BaseModal>
+    />
   );
 }
 

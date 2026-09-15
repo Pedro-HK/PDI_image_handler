@@ -1,87 +1,74 @@
-# Welcome to React Router!
+# Manipulador de Imagens
 
-A modern, production-ready template for building full-stack React applications using React Router.
+Projeto da Universidade Feevale para desenvolvimento de um manipulador de imagens. A aplicação permite carregar uma imagem e aplicar operações de processamento digital de imagens, exibindo o resultado da transformação na interface.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## Lógica das transformações
 
-## Features
+Os algoritmos de transformação estão na pasta `app/pdi/`:
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- `filters.ts`: filtros de imagem, como escala de cinza, brilho, contraste, passa-baixa, passa-alta e limiarização.
+- `geometric.ts`: transformações geométricas, como translação, rotação, espelhamento e redimensionamento.
+- `morphology.ts`: operações morfológicas, como dilatação, erosão, abertura, fechamento e afinamento.
+- `features.ts`: funcionalidades específicas adicionais da aplicação.
+- `helpers.ts`: estrutura da imagem e funções auxiliares para leitura, criação, acesso e alteração de pixels.
+- `index.ts`: exportação das operações utilizadas pela interface.
 
-## Getting Started
+Os modais da interface ficam em `app/components/modals/` e coletam os parâmetros de cada operação. A tela principal, em `app/routes/home.tsx`, conecta esses parâmetros aos algoritmos da pasta `app/pdi/`.
 
-### Installation
+## Como executar
 
-Install the dependencies:
+### Pré-requisitos
+
+- Node.js instalado.
+- npm instalado.
+
+### Instalação
+
+Na pasta raiz do projeto, instale as dependências:
 
 ```bash
 npm install
 ```
 
-### Development
+### Ambiente de desenvolvimento
 
-Start the development server with HMR:
+Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+Depois, acesse o endereço exibido no terminal, normalmente:
 
-## Building for Production
+```text
+http://localhost:5173
+```
 
-Create a production build:
+### Verificação de tipos
+
+Para executar a geração de tipos e a verificação do TypeScript:
+
+```bash
+npm run typecheck
+```
+
+### Build de produção
+
+Para gerar a versão de produção:
 
 ```bash
 npm run build
 ```
 
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
+Depois da compilação, execute o servidor de produção com:
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+npm run start
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+## Tecnologias
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+- React
+- React Router
+- TypeScript
+- Tailwind CSS

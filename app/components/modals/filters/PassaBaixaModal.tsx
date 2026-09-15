@@ -4,7 +4,7 @@ import { BaseModal } from "../BaseModal";
 interface PassaBaixaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: () => void;
+  onApply: (methodType: "gaussian" | "average") => void;
 }
 
 export function PassaBaixaModal({
@@ -12,8 +12,12 @@ export function PassaBaixaModal({
   onClose,
   onApply,
 }: PassaBaixaModalProps) {
+  const [methodType, setMethodType] = React.useState<"gaussian" | "average">(
+    "gaussian",
+  );
+
   const handleConfirm = () => {
-    onApply();
+    onApply(methodType);
     onClose();
   };
 
@@ -25,9 +29,20 @@ export function PassaBaixaModal({
       onClose={onClose}
       onApply={handleConfirm}
     >
-      <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de passa baixa aqui */}
-        <p className="italic text-slate-500">Parâmetros do filtro passa baixa (adicione os campos aqui).</p>
+      <div>
+        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+          Método
+        </label>
+        <select
+          value={methodType}
+          onChange={(event) =>
+            setMethodType(event.target.value as "gaussian" | "average")
+          }
+          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="gaussian">Gaussiano</option>
+          <option value="average">Média</option>
+        </select>
       </div>
     </BaseModal>
   );
