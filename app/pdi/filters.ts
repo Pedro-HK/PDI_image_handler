@@ -1,9 +1,3 @@
-/**
- * Filtros de Imagem
- *
- * ATENÇÃO: Implemente a lógica matemática dos algoritmos aqui no próximo encontro.
- */
-
 import { createPDIImage, PDIImage, wrapPDIImage } from "./helpers";
 
 function transform(
@@ -348,6 +342,39 @@ export function passaAlta(
       resultImage,
       threshold,
     );
+  }
+
+  return resultImage;
+}
+
+export function threshold(
+  imageInput?: PDIImage | ImageData | null,
+  limiar: number = 128,
+): PDIImage | null {
+  console.log("[PDI - Filtros] threshold chamado", { limiar });
+  if (!imageInput) return null;
+
+  const image =
+    imageInput instanceof PDIImage ? imageInput : wrapPDIImage(imageInput);
+  const resultImage = createPDIImage(image.getWidth(), image.getHeight());
+
+  for (let x = 0; x < image.getWidth(); x++) {
+    for (let y = 0; y < image.getHeight(); y++) {
+      // Converte o pixel para tons de cinza (luminância)
+      const red = image.get(0, x, y);
+      const green = image.get(1, x, y);
+      const blue = image.get(2, x, y);
+      const gray = 0.2125 * red + 0.7154 * green + 0.0721 * blue;
+
+      // Binariza: acima do limiar vira branco, senão preto
+      const newValue = gray > limiar ? 255 : 0;
+
+      resultImage.set(0, x, y, newValue);
+      resultImage.set(1, x, y, newValue);
+      resultImage.set(2, x, y, newValue);
+      // Mantém o canal alpha original
+      resultImage.set(3, x, y, image.get(3, x, y));
+    }
   }
 
   return resultImage;

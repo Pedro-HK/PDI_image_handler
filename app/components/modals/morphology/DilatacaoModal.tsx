@@ -26,8 +26,7 @@ export function DilatacaoModal({
       onApply={handleConfirm}
     >
       <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de dilatação aqui */}
-        <p className="italic text-slate-500">Parâmetros de dilatação (adicione os campos aqui).</p>
+        <p className="italic text-slate-500">Tem certeza que deseja dilatar</p>
       </div>
     </BaseModal>
   );

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router";
 import type { Route } from "./+types/home";
 import { AuthorsHeader } from "../components/AuthorsHeader";
 import { Navbar } from "../components/Navbar";
@@ -14,12 +15,12 @@ import {
   ContrastModal,
   PassaBaixaModal,
   PassaAltaModal,
+  ThresholdModal,
   DilatacaoModal,
   ErosaoModal,
   AberturaModal,
   FechamentoModal,
   AfinamentoModal,
-  DesafioModal,
 } from "../components/modals";
 import {
   PDIImage,
@@ -32,12 +33,12 @@ import {
   contraste,
   passaBaixa,
   passaAlta,
+  threshold,
   dilatacao,
   erosao,
   abertura,
   fechamento,
   afinamento,
-  desafio,
 } from "../pdi";
 
 export function meta({}: Route.MetaArgs) {
@@ -53,6 +54,8 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const authorName = "Pedro Henrique Knorst";
+
+  const navigate = useNavigate();
 
   const [originalImage, setOriginalImage] = useState<PDIImage | null>(null);
   const [modifiedImage, setModifiedImage] = useState<PDIImage | null>(null);
@@ -157,6 +160,14 @@ export default function Home() {
     }
     setActiveModal(modalName);
   };
+  
+  const runWithoutModal = (operationName: string, opFn: () => PDIImage | null) => {
+    if (!originalImage) {
+      alert("Por favor, abra uma imagem primeiro pelo menu Arquivo > Abrir imagem.");
+      return;
+    }
+    runOperation(operationName, opFn)
+  }
 
   const imageDimensions = originalImage
     ? { width: originalImage.getWidth(), height: originalImage.getHeight() }
@@ -189,12 +200,12 @@ export default function Home() {
         onPassaBaixa={() => openModal("passaBaixa")}
         onPassaAlta={() => openModal("passaAlta")}
         onThreshold={() => openModal("threshold")}
-        onDilatacao={() => openModal("dilatacao")}
-        onErosao={() => openModal("erosao")}
-        onAbertura={() => openModal("abertura")}
-        onFechamento={() => openModal("fechamento")}
+        onDilatacao={() => runWithoutModal("Dilatação", () => dilatacao(modifiedImage))}
+        onErosao={() => runWithoutModal("Erosão", () => erosao(modifiedImage))}
+        onAbertura={() => runWithoutModal("Abertura", () => abertura(modifiedImage))}
+        onFechamento={() => runWithoutModal("Fechamento", () => fechamento(modifiedImage))}
         onAfinamento={() => openModal("afinamento")}
-        onDesafio={() => openModal("desafio")}
+        onDesafio={() => navigate("/desafio")}
       />
 
       <ImageViewer
@@ -276,17 +287,27 @@ export default function Home() {
         isOpen={activeModal === "passaBaixa"}
         onClose={() => setActiveModal(null)}
         onApply={(methodType) => {
-          runOperation("Passa Baixa", () => passaBaixa(modifiedImage, methodType));
+          runOperation("Passa Baixa", () =>
+            passaBaixa(modifiedImage, methodType),
+          );
         }}
       />
 
       <PassaAltaModal
         isOpen={activeModal === "passaAlta"}
         onClose={() => setActiveModal(null)}
-        onApply={(methodType, thresholdValue) => {
+        onApply={(methodType, limiar) => {
           runOperation("Passa Alta", () =>
-            passaAlta(modifiedImage, methodType, thresholdValue),
+            passaAlta(modifiedImage, methodType, limiar),
           );
+        }}
+      />
+
+      <ThresholdModal
+        isOpen={activeModal === "threshold"}
+        onClose={() => setActiveModal(null)}
+        onApply={(limiar) => {
+          runOperation("Threshold", () => threshold(modifiedImage, limiar));
         }}
       />
 
@@ -327,14 +348,6 @@ export default function Home() {
         onClose={() => setActiveModal(null)}
         onApply={() => {
           runOperation("Afinamento", () => afinamento(modifiedImage));
-        }}
-      />
-
-      <DesafioModal
-        isOpen={activeModal === "desafio"}
-        onClose={() => setActiveModal(null)}
-        onApply={() => {
-          runOperation("DESAFIO", () => desafio(modifiedImage));
         }}
       />
     </div>

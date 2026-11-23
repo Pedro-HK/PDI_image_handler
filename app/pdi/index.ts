@@ -1,7 +1,3 @@
-/**
- * Ponto de entrada centralizado para todas as funções e helpers de PDI.
- */
-
 export * from "./helpers";
 export * from "./geometric";
 export * from "./filters";
