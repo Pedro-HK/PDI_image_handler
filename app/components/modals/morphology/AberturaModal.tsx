@@ -26,8 +26,7 @@ export function AberturaModal({
       onApply={handleConfirm}
     >
       <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de abertura aqui */}
-        <p className="italic text-slate-500">Parâmetros de abertura (adicione os campos aqui).</p>
+        <p className="italic text-slate-500">Tem certeza que deseja aplicar a abertura na imagem?</p>
       </div>
     </BaseModal>
   );

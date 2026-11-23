@@ -26,8 +26,7 @@ export function ErosaoModal({
       onApply={handleConfirm}
     >
       <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de erosão aqui */}
-        <p className="italic text-slate-500">Parâmetros de erosão (adicione os campos aqui).</p>
+        <p className="italic text-slate-500">Tem certeza que deseja erosão a imagem?</p>
       </div>
     </BaseModal>
   );

@@ -26,8 +26,7 @@ export function AfinamentoModal({
       onApply={handleConfirm}
     >
       <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de afinamento aqui */}
-        <p className="italic text-slate-500">Parâmetros de afinamento (adicione os campos aqui).</p>
+        <p className="italic text-slate-500">Tem certeza que deseja afinar a imagem?</p>
       </div>
     </BaseModal>
   );

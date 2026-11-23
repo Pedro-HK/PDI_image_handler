@@ -26,8 +26,7 @@ export function FechamentoModal({
       onApply={handleConfirm}
     >
       <div className="py-2 text-xs text-slate-400">
-        {/* TODO: Adicione os campos de fechamento aqui */}
-        <p className="italic text-slate-500">Parâmetros de fechamento (adicione os campos aqui).</p>
+        <p className="italic text-slate-500">Tem certeza que deseja aplicar o fechamento na imagem?</p>
       </div>
     </BaseModal>
   );

@@ -26,7 +26,7 @@ export function DilatacaoModal({
       onApply={handleConfirm}
     >
       <div className="py-2 text-xs text-slate-400">
-        <p className="italic text-slate-500">Tem certeza que deseja dilatar</p>
+        <p className="italic text-slate-500">Tem certeza que deseja dilatar a imagem?</p>
       </div>
     </BaseModal>
   );
