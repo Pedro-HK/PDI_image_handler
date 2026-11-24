@@ -1,6 +1,6 @@
 import React from "react";
 import { Upload } from "lucide-react";
-import { analisarPorcas, type ResultadoPorcas, type Ponto } from "../../pdi/porcas";
+import { analisarPorcas, type ResultadoPorcas, type Ponto } from "../../pdi/challenges/porcas";
 
 /**
  * Desafio 1 — Controle de qualidade na metalúrgica.
