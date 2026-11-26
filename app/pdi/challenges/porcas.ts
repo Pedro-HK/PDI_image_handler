@@ -1,539 +1,402 @@
 /**
- * Desafio 1 — Controle de qualidade na metalúrgica.
+ * Desafio 1 — Controle de qualidade na metalúrgica (ESBOÇO).
  *
- * Pipeline:
- *  1. Tons de cinza (luminância).
- *  2. Mapa de textura (passa-alta): energia local de (cinza − média 3x3).
- *     Gradientes suaves (sombra no fundo do furo) dão ~0; metal escovado dá > 10.
- *  3. Segmentação: metal = escuro (limiar de brilho, Otsu) OU áspero (limiar de textura).
- *     Só o brilho não basta: os reflexos do metal são tão claros quanto o fundo.
- *     A textura recupera esses reflexos, que são ásperos, enquanto o fundo é liso.
- *  4. Morfologia binária: abertura (remove ruído) + fechamento (preenche falhas)
- *     + erosão que compensa o "vazamento" da janela de textura na borda.
- *  5. Rotulação de componentes conexos do objeto (vizinhança-8) => porcas.
- *  6. Rotulação do fundo (vizinhança-4): componentes que não tocam a borda => furos.
- *  7. Rastreamento de contorno (Moore) + código de cadeia => perímetros.
- *  8. Contagem de pixels => áreas.
- *
- * Este módulo não depende do DOM: recebe qualquer objeto com { data, width, height }
- * no formato RGBA (ImageData ou PDIImage.imageData).
+ * Cada etapa gera uma PDIImage que é mostrada na tela, em ordem,
+ * para visualizar passo a passo como a lógica foi construída.
  */
 
-export interface RGBAImage {
-  data: Uint8ClampedArray | Uint8Array;
-  width: number;
-  height: number;
-}
+import { PDIImage } from "../helpers";
+import { grayscale } from "../filters";
+import {
+  pintar,
+  rotular,
+  VIZINHOS,
+  type Etapa,
+  type Rotulacao,
+} from "./rotulacao";
+import { abertura, dilatacao, erosao } from "../morphology";
 
-export interface Ponto {
-  x: number;
-  y: number;
-}
+export type { Etapa };
 
 export interface Porca {
-  /** Número da porca (1..N), ordenado por linha e depois por coluna. */
   id: number;
-  /** Área do corpo metálico da porca (sem o furo), em pixels. */
-  area: number;
   perimetroExterno: number;
   perimetroInterno: number;
   areaFuro: number;
-  /** false quando nenhum furo foi encontrado (porca defeituosa). */
-  temFuro: boolean;
-  centroide: Ponto;
-  caixa: { x0: number; y0: number; x1: number; y1: number };
-  contornoExterno: Ponto[];
-  contornoInterno: Ponto[];
-}
-
-export interface OpcoesPorcas {
-  /** Limiar de brilho (0..255): pixel mais escuro que isso é metal. Se omitido, usa Otsu. */
-  limiar?: number;
-  /** Limiar do mapa de textura: pixel mais áspero que isso é metal. Padrão 5. */
-  limiarTextura?: number;
-  /** Iterações de abertura 3x3 (remove ruído). */
-  abertura?: number;
-  /** Iterações de fechamento 3x3 (preenche reflexos/falhas). */
-  fechamento?: number;
-  /** Área mínima de uma porca, em fração da imagem. */
-  areaMinimaRelativa?: number;
-  /** Um furo menor que esta fração da área da porca é considerado ruído. */
-  furoMinimoRelativo?: number;
 }
 
 export interface ResultadoPorcas {
-  /** Limiar de brilho usado (Otsu ou manual). */
-  limiar: number;
-  limiarTextura: number;
-  largura: number;
-  altura: number;
-  /** Mapa de textura (mesma escala do limiar). */
-  textura: Float32Array;
-  /** Máscara binária final (1 = porca) após a morfologia. */
-  mascara: Uint8Array;
+  etapas: Etapa[];
   porcas: Porca[];
 }
 
-// Vizinhança-8 no sentido anti-horário (eixo y para baixo):
-// 0=E, 1=NE, 2=N, 3=NO, 4=O, 5=SO, 6=S, 7=SE
-const DX = [1, 1, 0, -1, -1, -1, 0, 1];
-const DY = [0, -1, -1, -1, 0, 1, 1, 1];
+/** Componentes de porca menores que isso são ruído. */
+const AREA_MINIMA_PORCA = 500;
 
-/**
- * Quantos pixels a textura "vaza" além da borda real: 1 da média 3x3 do
- * passa-alta + 2 da janela 5x5 da energia.
- */
-const VAZAMENTO_TEXTURA = 3;
+/** Regiões brancas dentro da porca menores que isso são manchas, não furos. */
+const AREA_MINIMA_FURO = 100;
+
+/** Acima disso a região é irregular demais para ser um furo (círculo ≈ 1). */
+const CIRCULARIDADE_MAXIMA = 2;
+
+/** Raio de busca da rotulação das porcas (1 = só os 4 vizinhos). */
+const RAIO_BUSCA_PORCA = 4;
+
+/** Desvio padrão local acima disso = textura de metal. */
+const LIMIAR_DESVIO = 12;
+
 export function analisarPorcas(
-  imagem: RGBAImage,
-  opcoes: OpcoesPorcas = {},
+  imagem: PDIImage,
+  limiar: number = 100,
 ): ResultadoPorcas {
-  const { width, height } = imagem;
-  const total = width * height;
+  const etapas: Etapa[] = [];
 
-  // 1. Tons de cinza
-  const cinza = toGray(imagem);
+  etapas.push({
+    titulo: "1. Original",
+    descricao: "Imagem de entrada.",
+    imagem: imagem.clone(),
+  });
 
-  // 2. Mapa de textura
-  const textura = highPassTexture(cinza, width, height);
+  // 2. Tons de cinza
+  const cinza = grayscale(imagem) ?? imagem.clone();
+  etapas.push({
+    titulo: "2. Tons de cinza",
+    descricao: "Converte para luminância.",
+    imagem: cinza,
+  });
 
-  // 3. Segmentação: escuro (limiar de brilho) OU texturizado (limiar de textura)
-  const limiar = opcoes.limiar ?? otsu(cinza);
-  const limiarTextura = opcoes.limiarTextura ?? 5;
-  let mascara: Uint8Array = new Uint8Array(total);
-  for (let i = 0; i < total; i++) {
-    mascara[i] = cinza[i] <= limiar || textura[i] > limiarTextura ? 1 : 0;
-  }
+  // 3. Máscara por textura: escuro OU texturizado = porca (preto), liso e claro = fundo (branco)
+  const binaria = mascaraPorTextura(cinza, limiar, LIMIAR_DESVIO);
+  etapas.push({
+    titulo: "3. Máscara por textura",
+    descricao: `Porca = cinza < ${limiar} ou desvio padrão 3x3 > ${LIMIAR_DESVIO}. Fundo e sombra são lisos.`,
+    imagem: binaria,
+  });
 
-  // 4. Morfologia
-  const nAbertura = opcoes.abertura ?? 1;
-  const nFechamento = opcoes.fechamento ?? 2;
-  for (let i = 0; i < nAbertura; i++) mascara = erode(mascara, width, height);
-  for (let i = 0; i < nAbertura; i++) mascara = dilate(mascara, width, height);
-  for (let i = 0; i < nFechamento; i++) mascara = dilate(mascara, width, height);
-  for (let i = 0; i < nFechamento; i++) mascara = erode(mascara, width, height);
-  for (let i = 0; i < VAZAMENTO_TEXTURA; i++) mascara = erode(mascara, width, height);
+  // 4. Morfologia: abertura remove ruído; dilatar 2x + erodir 2x fecha reflexos maiores
+  // (repetir fechamento() não adianta: o resultado é o mesmo)
+  let limpa = abertura(binaria) ?? binaria.clone();
+  limpa = dilatacao(dilatacao(limpa))!;
+  limpa = erosao(erosao(limpa))!;
+  etapas.push({
+    titulo: "4. Abertura + Fechamento 2x",
+    descricao: "Remove ruídos e preenche reflexos do metal.",
+    imagem: limpa,
+  });
 
-  // 5. Componentes do objeto (8-conexo) => candidatas a porca
-  const areaMinima = Math.max(
-    20,
-    Math.round(total * (opcoes.areaMinimaRelativa ?? 0.002)),
+  // 5. Rotulação de componentes conexos: pretos = porcas, brancos = fundo + furos
+  // raio 4: pedaços da porca a até 3 px de distância (reflexo no meio) viram um só objeto
+  const porcasRot = rotular(limpa, 0, RAIO_BUSCA_PORCA);
+  const fundoRot = rotular(limpa, 255);
+  etapas.push({
+    titulo: "5. Rotulação",
+    descricao: "Cada componente conexo preto é uma porca.",
+    imagem: porcasRot.image,
+  });
+
+  // 6. Furos: regiões de fundo que não tocam a borda da imagem
+  const donoDoFuro = encontrarDonos(porcasRot, fundoRot);
+  const furoPrincipal = escolherFuros(porcasRot, fundoRot, donoDoFuro);
+  const furos = encontrarFuros(limpa, fundoRot, furoPrincipal);
+  etapas.push({
+    titulo: "6. Furos",
+    descricao: "Fundo cercado pela porca = furo (em vermelho).",
+    imagem: furos,
+  });
+
+  // 7. Contornos externo e interno
+  const contornos = desenharContornos(
+    imagem,
+    porcasRot,
+    fundoRot,
+    furoPrincipal,
   );
-  const objetos = label(mascara, width, height, 1, true);
-  const rotuloPorca = objetos.labels;
-  const ehPorca = new Uint8Array(objetos.count + 1);
-  for (let l = 1; l <= objetos.count; l++) {
-    if (objetos.areas[l] >= areaMinima) ehPorca[l] = 1;
+  etapas.push({
+    titulo: "7. Contornos",
+    descricao: "Verde = borda externa, vermelho = borda do furo.",
+    imagem: contornos,
+  });
+
+  // 8. Medidas de cada porca
+  const porcas = medirPorcas(porcasRot, fundoRot, furoPrincipal);
+
+  return { etapas, porcas };
+}
+
+/** Uma porca de verdade (e não um pontinho de ruído). */
+function ehPorca(porcasRot: Rotulacao, p: number): boolean {
+  return p > 0 && porcasRot.components[p].area >= AREA_MINIMA_PORCA;
+}
+
+/**
+ * Para cada furo (componente de fundo que não toca a borda), descobre a porca
+ * que o envolve. O primeiro pixel do furo na varredura tem logo acima dele
+ * um pixel da porca dona.
+ * Retorna donoDoFuro[rotuloFundo] = rotuloPorca (0 = não é furo).
+ */
+function encontrarDonos(porcasRot: Rotulacao, fundoRot: Rotulacao): number[] {
+  const donoDoFuro = fundoRot.components.map(() => 0);
+
+  for (let f = 1; f < fundoRot.components.length; f++) {
+    const furo = fundoRot.components[f];
+    if (furo.tocaBorda) continue;
+    donoDoFuro[f] = porcasRot.labels[furo.inicioY - 1][furo.inicioX];
   }
-  // Remove ruídos pequenos da máscara
-  for (let i = 0; i < total; i++) {
-    const l = rotuloPorca[i];
-    if (l > 0 && !ehPorca[l]) {
-      mascara[i] = 0;
-      rotuloPorca[i] = 0;
+
+  return donoDoFuro;
+}
+
+/**
+ * Perímetro de cada componente de fundo: nº de pixels dele que têm algum
+ * vizinho (4-conexo) fora do componente.
+ * Retorna perimetro[rotuloFundo].
+ */
+function perimetroDoFundo(fundoRot: Rotulacao): number[] {
+  const perimetro = fundoRot.components.map(() => 0);
+  const height = fundoRot.labels.length;
+  const width = fundoRot.labels[0].length;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const f = fundoRot.labels[y][x];
+      if (f == 0) continue;
+
+      for (const [dx, dy] of VIZINHOS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (
+          nx < 0 ||
+          ny < 0 ||
+          nx >= width ||
+          ny >= height ||
+          fundoRot.labels[ny][nx] != f
+        ) {
+          perimetro[f]++;
+          break; // conta o pixel uma vez só
+        }
+      }
     }
   }
 
-  // 5. Componentes do fundo (4-conexo). Os que não tocam a borda são furos.
-  const fundo = label(mascara, width, height, 0, false);
-  const donoDoFuro = new Int32Array(fundo.count + 1); // rótulo da porca que envolve o furo
-  for (let f = 1; f <= fundo.count; f++) {
-    if (fundo.tocaBorda[f]) continue;
-    // Qualquer vizinho de objeto do pixel inicial pertence à porca que o envolve.
-    donoDoFuro[f] = vizinhoObjeto(fundo.inicio[f], rotuloPorca, width, height);
-  }
+  return perimetro;
+}
 
-  // Área "preenchida" de cada porca (corpo + todos os furos)
-  const areaPreenchida = new Float64Array(objetos.count + 1);
-  for (let l = 1; l <= objetos.count; l++) areaPreenchida[l] = objetos.areas[l];
-  for (let f = 1; f <= fundo.count; f++) {
-    if (donoDoFuro[f] > 0) areaPreenchida[donoDoFuro[f]] += fundo.areas[f];
-  }
+/**
+ * Circularidade = perímetro² / (4π · área).
+ * ~1 para um círculo; cresce para formas compridas/irregulares (reflexos).
+ */
+function circularidade(perimetro: number, area: number): number {
+  return (perimetro * perimetro) / (4 * Math.PI * area);
+}
 
-  // Furo principal = maior furo de cada porca (os demais são reflexos/ruído)
-  const furoPrincipal = new Int32Array(objetos.count + 1);
-  for (let f = 1; f <= fundo.count; f++) {
+/**
+ * Reflexos claros dentro da porca também viram "furos". Descarta os que são
+ * pequenos demais (manchas) ou irregulares demais (reflexos compridos) e,
+ * dos que sobram, fica só o maior de cada porca.
+ * Retorna furoPrincipal[rotuloPorca] = rotuloFundo (0 = porca sem furo).
+ */
+function escolherFuros(
+  porcasRot: Rotulacao,
+  fundoRot: Rotulacao,
+  donoDoFuro: number[],
+): number[] {
+  const furoPrincipal = porcasRot.components.map(() => 0);
+  const perimetro = perimetroDoFundo(fundoRot);
+
+  for (let f = 1; f < fundoRot.components.length; f++) {
     const dono = donoDoFuro[f];
-    if (dono === 0) continue;
+    if (!ehPorca(porcasRot, dono)) continue;
+
+    const area = fundoRot.components[f].area;
+    if (area < AREA_MINIMA_FURO) continue; // mancha pequena
+    if (circularidade(perimetro[f], area) > CIRCULARIDADE_MAXIMA) continue; // reflexo irregular
+
     const atual = furoPrincipal[dono];
-    if (atual === 0 || fundo.areas[f] > fundo.areas[atual]) furoPrincipal[dono] = f;
-  }
-  const furoMinimo = opcoes.furoMinimoRelativo ?? 0.01;
-  for (let l = 1; l <= objetos.count; l++) {
-    const f = furoPrincipal[l];
-    if (f > 0 && fundo.areas[f] < areaPreenchida[l] * furoMinimo) furoPrincipal[l] = 0;
-  }
-
-  // 6/7. Medidas de cada porca
-  const porcas: Porca[] = [];
-  for (let l = 1; l <= objetos.count; l++) {
-    if (!ehPorca[l]) continue;
-
-    const f = furoPrincipal[l];
-    const areaFuro = f > 0 ? fundo.areas[f] : 0;
-
-    // Contorno externo: porca preenchida (corpo + qualquer furo dela)
-    const externo = traceContour(objetos.inicio[l], width, height, (i) => {
-      if (rotuloPorca[i] === l) return true;
-      const fl = fundo.labels[i];
-      return fl > 0 && donoDoFuro[fl] === l;
-    });
-
-    // Contorno interno: borda do furo principal
-    const interno =
-      f > 0
-        ? traceContour(fundo.inicio[f], width, height, (i) => fundo.labels[i] === f)
-        : { pontos: [], perimetro: 0 };
-
-    porcas.push({
-      id: 0,
-      area: areaPreenchida[l] - areaFuro,
-      perimetroExterno: externo.perimetro,
-      perimetroInterno: interno.perimetro,
-      areaFuro,
-      temFuro: f > 0,
-      centroide: {
-        x: objetos.somaX[l] / objetos.areas[l],
-        y: objetos.somaY[l] / objetos.areas[l],
-      },
-      caixa: objetos.caixas[l],
-      contornoExterno: externo.pontos,
-      contornoInterno: interno.pontos,
-    });
-  }
-
-  numerar(porcas);
-
-  return {
-    limiar,
-    limiarTextura,
-    largura: width,
-    altura: height,
-    textura,
-    mascara,
-    porcas,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Etapas auxiliares
-// ---------------------------------------------------------------------------
-
-function toGray(imagem: RGBAImage): Uint8Array {
-  const { data, width, height } = imagem;
-  const cinza = new Uint8Array(width * height);
-  for (let i = 0; i < cinza.length; i++) {
-    const p = i * 4;
-    cinza[i] = Math.round(
-      0.2125 * data[p] + 0.7154 * data[p + 1] + 0.0721 * data[p + 2],
-    );
-  }
-  return cinza;
-}
-
-/** Limiar de Otsu: maximiza a variância entre as classes objeto/fundo. */
-export function otsu(cinza: Uint8Array): number {
-  const hist = new Float64Array(256);
-  for (let i = 0; i < cinza.length; i++) hist[cinza[i]]++;
-
-  const total = cinza.length;
-  let somaTotal = 0;
-  for (let t = 0; t < 256; t++) somaTotal += t * hist[t];
-
-  let somaFundo = 0;
-  let pesoFundo = 0;
-  let melhorVariancia = -1;
-  let melhorLimiar = 128;
-
-  for (let t = 0; t < 256; t++) {
-    pesoFundo += hist[t];
-    if (pesoFundo === 0) continue;
-    const pesoObjeto = total - pesoFundo;
-    if (pesoObjeto === 0) break;
-
-    somaFundo += t * hist[t];
-    const media0 = somaFundo / pesoFundo;
-    const media1 = (somaTotal - somaFundo) / pesoObjeto;
-    const variancia = pesoFundo * pesoObjeto * (media0 - media1) ** 2;
-
-    if (variancia > melhorVariancia) {
-      melhorVariancia = variancia;
-      melhorLimiar = t;
-    }
-  }
-  return melhorLimiar;
-}
-
-/**
- * Textura passa-alta: raiz da média 5x5 de (cinza − média 3x3)².
- * Gradientes suaves (sombras, fundo visto pelo furo) dão ~0;
- * a superfície escovada do metal dá valores altos.
- */
-function highPassTexture(cinza: Uint8Array, w: number, h: number): Float32Array {
-  const g = Float32Array.from(cinza);
-  const media = boxMean(g, w, h, 1);
-  const residuo2 = new Float32Array(w * h);
-  for (let i = 0; i < residuo2.length; i++) residuo2[i] = (g[i] - media[i]) ** 2;
-  const energia = boxMean(residuo2, w, h, 2);
-  for (let i = 0; i < energia.length; i++) energia[i] = Math.sqrt(energia[i]);
-  return energia;
-}
-
-/** Média em janela (2r+1)x(2r+1) usando imagem integral (borda: janela truncada). */
-function boxMean(src: Float32Array, w: number, h: number, r: number): Float32Array {
-  const W = w + 1;
-  const soma = new Float64Array(W * (h + 1));
-  for (let y = 0; y < h; y++) {
-    let linha = 0;
-    for (let x = 0; x < w; x++) {
-      linha += src[y * w + x];
-      soma[(y + 1) * W + x + 1] = soma[y * W + x + 1] + linha;
-    }
-  }
-
-  const out = new Float32Array(w * h);
-  for (let y = 0; y < h; y++) {
-    const ya = Math.max(0, y - r);
-    const yb = Math.min(h, y + r + 1);
-    for (let x = 0; x < w; x++) {
-      const xa = Math.max(0, x - r);
-      const xb = Math.min(w, x + r + 1);
-      const s = soma[yb * W + xb] - soma[ya * W + xb] - soma[yb * W + xa] + soma[ya * W + xa];
-      out[y * w + x] = s / ((yb - ya) * (xb - xa));
-    }
-  }
-  return out;
-}
-
-function erode(src: Uint8Array, w: number, h: number): Uint8Array {
-  const out = new Uint8Array(src.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = 1;
-      for (let dy = -1; dy <= 1 && v; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || nx >= w || ny < 0 || ny >= h || !src[ny * w + nx]) {
-            v = 0;
-            break;
-          }
-        }
-      }
-      out[y * w + x] = v;
-    }
-  }
-  return out;
-}
-
-function dilate(src: Uint8Array, w: number, h: number): Uint8Array {
-  const out = new Uint8Array(src.length);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let v = 0;
-      for (let dy = -1; dy <= 1 && !v; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx >= 0 && nx < w && ny >= 0 && ny < h && src[ny * w + nx]) {
-            v = 1;
-            break;
-          }
-        }
-      }
-      out[y * w + x] = v;
-    }
-  }
-  return out;
-}
-
-interface Rotulacao {
-  labels: Int32Array;
-  count: number;
-  /** Índices indexados pelo rótulo (posição 0 não usada). */
-  areas: number[];
-  inicio: number[]; // primeiro pixel na varredura (canto superior esquerdo)
-  tocaBorda: boolean[];
-  somaX: number[];
-  somaY: number[];
-  caixas: { x0: number; y0: number; x1: number; y1: number }[];
-}
-
-/** Rotulação de componentes conexos por busca em largura (iterativa). */
-function label(
-  mascara: Uint8Array,
-  w: number,
-  h: number,
-  valor: 0 | 1,
-  oitoConexo: boolean,
-): Rotulacao {
-  const labels = new Int32Array(w * h);
-  const fila = new Int32Array(w * h);
-  const r: Rotulacao = {
-    labels,
-    count: 0,
-    areas: [0],
-    inicio: [0],
-    tocaBorda: [false],
-    somaX: [0],
-    somaY: [0],
-    caixas: [{ x0: 0, y0: 0, x1: 0, y1: 0 }],
-  };
-
-  const vizinhos = oitoConexo ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 2, 4, 6];
-
-  for (let s = 0; s < w * h; s++) {
-    if (mascara[s] !== valor || labels[s] !== 0) continue;
-
-    const l = ++r.count;
-    let area = 0;
-    let somaX = 0;
-    let somaY = 0;
-    let borda = false;
-    let x0 = w, y0 = h, x1 = 0, y1 = 0;
-
-    let ini = 0;
-    let fim = 0;
-    fila[fim++] = s;
-    labels[s] = l;
-
-    while (ini < fim) {
-      const p = fila[ini++];
-      const x = p % w;
-      const y = (p - x) / w;
-      area++;
-      somaX += x;
-      somaY += y;
-      if (x < x0) x0 = x;
-      if (x > x1) x1 = x;
-      if (y < y0) y0 = y;
-      if (y > y1) y1 = y;
-      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) borda = true;
-
-      for (const d of vizinhos) {
-        const nx = x + DX[d];
-        const ny = y + DY[d];
-        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-        const n = ny * w + nx;
-        if (mascara[n] === valor && labels[n] === 0) {
-          labels[n] = l;
-          fila[fim++] = n;
-        }
-      }
-    }
-
-    r.areas.push(area);
-    r.inicio.push(s);
-    r.tocaBorda.push(borda);
-    r.somaX.push(somaX);
-    r.somaY.push(somaY);
-    r.caixas.push({ x0, y0, x1, y1 });
-  }
-
-  return r;
-}
-
-function vizinhoObjeto(p: number, rotulos: Int32Array, w: number, h: number): number {
-  const x = p % w;
-  const y = (p - x) / w;
-  for (let d = 0; d < 8; d++) {
-    const nx = x + DX[d];
-    const ny = y + DY[d];
-    if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-    const l = rotulos[ny * w + nx];
-    if (l > 0) return l;
-  }
-  return 0;
-}
-
-/**
- * Rastreamento de contorno de Moore (vizinhança-8) a partir do pixel
- * superior-esquerdo da região. O perímetro é calculado pelo código de cadeia:
- * passos retos (direção par) valem 1, diagonais (ímpar) valem √2.
- */
-function traceContour(
-  inicio: number,
-  w: number,
-  h: number,
-  naRegiao: (i: number) => boolean,
-): { pontos: Ponto[]; perimetro: number } {
-  const dentro = (x: number, y: number) =>
-    x >= 0 && x < w && y >= 0 && y < h && naRegiao(y * w + x);
-
-  const x0 = inicio % w;
-  const y0 = (inicio - x0) / w;
-  const pontos: Ponto[] = [{ x: x0, y: y0 }];
-  const passos: number[] = [];
-
-  let x = x0;
-  let y = y0;
-  let dir = 7;
-  const limite = 4 * w * h;
-
-  for (let iter = 0; iter < limite; iter++) {
-    // Começa a busca a partir do vizinho "atrás" da última direção.
-    const busca = dir % 2 === 0 ? (dir + 7) % 8 : (dir + 6) % 8;
-    let achou = -1;
-    for (let k = 0; k < 8; k++) {
-      const d = (busca + k) % 8;
-      if (dentro(x + DX[d], y + DY[d])) {
-        achou = d;
-        break;
-      }
-    }
-    if (achou < 0) break; // região de um único pixel
-
-    dir = achou;
-    x += DX[dir];
-    y += DY[dir];
-    passos.push(dir);
-    pontos.push({ x, y });
-
-    // Critério de parada: voltou a P0 e o próximo seria P1 => sequência P0,P1 repetida.
-    const n = pontos.length;
     if (
-      n >= 4 &&
-      pontos[n - 1].x === pontos[1].x &&
-      pontos[n - 1].y === pontos[1].y &&
-      pontos[n - 2].x === x0 &&
-      pontos[n - 2].y === y0
+      atual == 0 ||
+      fundoRot.components[f].area > fundoRot.components[atual].area
     ) {
-      pontos.length = n - 2;
-      passos.length = passos.length - 1;
-      break;
+      furoPrincipal[dono] = f;
     }
   }
 
-  let perimetro = 0;
-  for (const d of passos) perimetro += d % 2 === 0 ? 1 : Math.SQRT2;
-  return { pontos, perimetro };
+  return furoPrincipal;
 }
 
-/** Numera as porcas por linhas (de cima para baixo) e colunas (da esquerda para a direita). */
-function numerar(porcas: Porca[]): void {
-  if (porcas.length === 0) return;
-  const alturaMedia =
-    porcas.reduce((s, p) => s + (p.caixa.y1 - p.caixa.y0 + 1), 0) / porcas.length;
+/** Diz se o rótulo de fundo f é o furo principal de alguma porca. */
+function ehFuroPrincipal(furoPrincipal: number[], f: number): boolean {
+  return f > 0 && furoPrincipal.includes(f);
+}
 
-  porcas.sort((a, b) => a.centroide.y - b.centroide.y);
+/**
+ * Classifica a borda do pixel (x, y) de uma porca olhando os 4 vizinhos:
+ *  - vizinho fora da imagem ou fundo que toca a borda => borda externa
+ *  - vizinho que é o furo principal                   => borda interna
+ */
+function tipoDeBorda(
+  x: number,
+  y: number,
+  fundoRot: Rotulacao,
+  furoPrincipal: number[],
+): { externa: boolean; interna: boolean } {
+  const height = fundoRot.labels.length;
+  const width = fundoRot.labels[0].length;
+  let externa = false;
+  let interna = false;
 
-  const linhas: Porca[][] = [];
-  for (const p of porcas) {
-    const linha = linhas[linhas.length - 1];
-    if (linha && Math.abs(p.centroide.y - linha[0].centroide.y) < alturaMedia / 2) {
-      linha.push(p);
-    } else {
-      linhas.push([p]);
+  for (const [dx, dy] of VIZINHOS) {
+    const nx = x + dx;
+    const ny = y + dy;
+
+    if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+      externa = true;
+      continue;
+    }
+
+    const f = fundoRot.labels[ny][nx];
+    if (f == 0) continue; // vizinho também é porca
+
+    if (fundoRot.components[f].tocaBorda) externa = true;
+    else if (ehFuroPrincipal(furoPrincipal, f)) interna = true;
+  }
+
+  return { externa, interna };
+}
+
+/**
+ * Pinta de vermelho os furos principais sobre a imagem binária.
+ * (Fundo que toca a borda = fundo de verdade; o que não toca = furo.)
+ */
+function encontrarFuros(
+  binaria: PDIImage,
+  fundoRot: Rotulacao,
+  furoPrincipal: number[],
+): PDIImage {
+  const result = binaria.clone();
+
+  for (let y = 0; y < binaria.getHeight(); y++) {
+    for (let x = 0; x < binaria.getWidth(); x++) {
+      if (ehFuroPrincipal(furoPrincipal, fundoRot.labels[y][x])) {
+        pintar(result, x, y, [239, 68, 68]);
+      }
     }
   }
 
-  let id = 1;
-  porcas.length = 0;
-  for (const linha of linhas) {
-    linha.sort((a, b) => a.centroide.x - b.centroide.x);
-    for (const p of linha) {
-      p.id = id++;
-      porcas.push(p);
+  return result;
+}
+
+/** Marca sobre a imagem original: verde = borda externa, vermelho = borda do furo. */
+function desenharContornos(
+  original: PDIImage,
+  porcasRot: Rotulacao,
+  fundoRot: Rotulacao,
+  furoPrincipal: number[],
+): PDIImage {
+  const result = original.clone();
+
+  for (let y = 0; y < original.getHeight(); y++) {
+    for (let x = 0; x < original.getWidth(); x++) {
+      if (!ehPorca(porcasRot, porcasRot.labels[y][x])) continue;
+
+      const { externa, interna } = tipoDeBorda(x, y, fundoRot, furoPrincipal);
+      if (externa) pintar(result, x, y, [34, 197, 94]);
+      if (interna) pintar(result, x, y, [239, 68, 68]);
     }
   }
+
+  return result;
+}
+
+/**
+ * Para cada porca:
+ *  - perímetro externo = nº de pixels de borda externa
+ *  - perímetro interno = nº de pixels de borda do furo
+ *  - área do furo = nº de pixels do furo principal
+ */
+function medirPorcas(
+  porcasRot: Rotulacao,
+  fundoRot: Rotulacao,
+  furoPrincipal: number[],
+): Porca[] {
+  const perimetroExterno = porcasRot.components.map(() => 0);
+  const perimetroInterno = porcasRot.components.map(() => 0);
+
+  for (let y = 0; y < porcasRot.labels.length; y++) {
+    for (let x = 0; x < porcasRot.labels[0].length; x++) {
+      const p = porcasRot.labels[y][x];
+      if (!ehPorca(porcasRot, p)) continue;
+
+      const { externa, interna } = tipoDeBorda(x, y, fundoRot, furoPrincipal);
+      if (externa) perimetroExterno[p]++;
+      if (interna) perimetroInterno[p]++;
+    }
+  }
+
+  // Monta o resultado numerando só as porcas de verdade (1, 2, 3...)
+  const porcas: Porca[] = [];
+  for (let p = 1; p < porcasRot.components.length; p++) {
+    if (!ehPorca(porcasRot, p)) continue;
+
+    const f = furoPrincipal[p];
+    porcas.push({
+      id: porcas.length + 1,
+      perimetroExterno: perimetroExterno[p],
+      perimetroInterno: perimetroInterno[p],
+      areaFuro: f > 0 ? fundoRot.components[f].area : 0,
+    });
+  }
+
+  return porcas;
+}
+
+/**
+ * Máscara por textura: o fundo é liso (desvio padrão baixo) e o metal é
+ * texturizado (desvio alto), mesmo onde tem reflexo claro.
+ * Pixel é porca (0) se for escuro OU texturizado; senão é fundo (255).
+ */
+function mascaraPorTextura(
+  cinza: PDIImage,
+  limiarEscuro: number = 100,
+  limiarDesvio: number = 12,
+  raio: number = 1, // raio 1 = janela 3x3
+): PDIImage {
+  const width = cinza.getWidth();
+  const height = cinza.getHeight();
+  const result = cinza.clone();
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let soma = 0;
+      let somaQuadrados = 0;
+      let n = 0;
+
+      // percorre a janela em volta do pixel
+      for (let dy = -raio; dy <= raio; dy++) {
+        for (let dx = -raio; dx <= raio; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+
+          const v = cinza.get(0, nx, ny);
+          soma += v;
+          somaQuadrados += v * v;
+          n++;
+        }
+      }
+
+      const media = soma / n;
+      const variancia = somaQuadrados / n - media * media;
+      const desvio = Math.sqrt(Math.max(0, variancia)); // max evita -0.0000001 por arredondamento
+
+      const escuro = cinza.get(0, x, y) < limiarEscuro;
+      const texturizado = desvio > limiarDesvio;
+      const valor = escuro || texturizado ? 0 : 255;
+
+      result.set(0, x, y, valor);
+      result.set(1, x, y, valor);
+      result.set(2, x, y, valor);
+    }
+  }
+
+  return result;
 }

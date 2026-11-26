@@ -34,6 +34,7 @@ export function ContrastModal({
         <div className="flex items-center gap-2">
           <input
             type="number"
+            step={0.01}
             value={contrast}
             onChange={(event) => setContrast(Number(event.target.value))}
             className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"

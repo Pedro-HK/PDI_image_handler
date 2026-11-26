@@ -30,7 +30,12 @@ function applyMorphology(
 
   for (let i = -1; i <= 1; i++) {
     for (let j = -1; j <= 1; j++) {
-      let currentPixel = image.get(channel, x + i, y + j)
+      const nx = x + i
+      const ny = y + j
+      // ignora vizinhos fora da imagem (get() devolveria 0 e criaria uma moldura preta)
+      if (nx < 0 || ny < 0 || nx >= image.getWidth() || ny >= image.getHeight()) continue
+
+      let currentPixel = image.get(channel, nx, ny)
 
       if (operation === "dilatacao") {
         value = Math.min(value, currentPixel)
